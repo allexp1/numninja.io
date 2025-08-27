@@ -1,6 +1,9 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { validateEmail } from '@/lib/supabase'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,11 +25,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create Supabase client
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    // Create Supabase client with proper cookie handling
+    const supabase = createRouteHandlerClient({ cookies })
 
     // Sign in the user
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -35,17 +35,32 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
+      console.error('Sign in error:', error)
       return NextResponse.json(
         { error: error.message },
         { status: 401 }
       )
     }
 
+    if (!data.session) {
+      return NextResponse.json(
+        { error: 'No session created' },
+        { status: 401 }
+      )
+    }
+
+    console.log('User signed in successfully:', email)
+    console.log('Session created:', !!data.session.access_token)
+
     return NextResponse.json(
-      { 
+      {
         message: 'Sign in successful',
         user: data.user,
-        session: data.session
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: data.session.expires_at
+        }
       },
       { status: 200 }
     )
