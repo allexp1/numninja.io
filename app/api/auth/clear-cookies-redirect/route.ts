@@ -12,13 +12,12 @@ export async function GET() {
     
     console.log('Clearing malformed cookies...')
     
-    // Clear all Supabase-related and malformed cookies
+    // Clear only truly malformed cookies, not valid auth tokens
     for (const cookie of allCookies) {
-      if (cookie.name.startsWith('sb-') || 
-          cookie.name.includes('supabase') ||
-          cookie.value.startsWith('base64-') ||
-          cookie.value.startsWith('eyJ')) {
-        console.log(`Clearing cookie: ${cookie.name}`)
+      // Only clear cookies that have the base64- prefix error
+      // Don't clear valid Supabase auth tokens or chunked cookies
+      if (cookie.value.startsWith('base64-')) {
+        console.log(`Clearing malformed cookie: ${cookie.name}`)
         cookieStore.delete(cookie.name)
       }
     }

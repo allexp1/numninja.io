@@ -6,18 +6,18 @@ export async function middleware(req: NextRequest) {
   // Check for malformed cookies and clean them
   const cookies = req.cookies.getAll()
   const malformedCookies = cookies.filter(cookie => {
-    // Only consider cookies as malformed if they have base64- prefix
-    // or if they're raw JWT tokens not properly formatted
-    // Don't flag chunked cookies (ending in .0, .1, etc) as malformed
+    // Skip chunked cookies (they have .0, .1, etc in the name)
+    if (cookie.name.match(/\.\d+$/)) {
+      return false
+    }
+    
+    // Only flag cookies that have the specific base64- prefix error
     if (cookie.value.startsWith('base64-')) {
       return true
     }
-    // Check for raw JWT tokens that aren't properly formatted
-    // Valid JWTs have 3 parts separated by dots
-    if (cookie.value.startsWith('eyJ')) {
-      const parts = cookie.value.split('.')
-      return parts.length !== 3
-    }
+    
+    // Don't check JWT format for auth tokens as they can be chunked or partial
+    // The auth-helpers library will handle reassembling them
     return false
   })
   
