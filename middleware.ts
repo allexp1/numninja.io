@@ -3,21 +3,63 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
+  // Check for malformed cookies and clean them
+  const cookies = req.cookies.getAll()
+  const malformedCookies = cookies.filter(cookie =>
+    cookie.value.startsWith('base64-') ||
+    (cookie.value.startsWith('eyJ') && !cookie.value.includes('.'))
+  )
+  
+  if (malformedCookies.length > 0) {
+    console.log('Found malformed cookies, redirecting to clear them:', malformedCookies.map(c => c.name))
+    
+    // Create a response that clears the malformed cookies
+    const response = NextResponse.redirect(new URL('/api/auth/clear-cookies-redirect', req.url))
+    
+    // Delete all malformed cookies
+    malformedCookies.forEach(cookie => {
+      response.cookies.delete(cookie.name)
+    })
+    
+    return response
+  }
+
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+  
+  let session = null
+  
+  try {
+    const supabase = createMiddlewareClient({ req, res })
 
-  // Refresh the session to ensure it's valid
-  const {
-    data: { session },
-    error
-  } = await supabase.auth.getSession()
+    // Refresh the session to ensure it's valid
+    const {
+      data,
+      error
+    } = await supabase.auth.getSession()
+    
+    session = data.session
 
-  // Log for debugging (also in production temporarily to debug issues)
-  console.log('Middleware path:', req.nextUrl.pathname)
-  console.log('Session exists:', !!session)
-  console.log('Session user:', session?.user?.email)
-  if (error) {
-    console.error('Session error:', error)
+    // Log for debugging (also in production temporarily to debug issues)
+    console.log('Middleware path:', req.nextUrl.pathname)
+    console.log('Session exists:', !!session)
+    console.log('Session user:', session?.user?.email)
+    if (error) {
+      console.error('Session error:', error)
+    }
+  } catch (parseError) {
+    console.error('Cookie parsing error:', parseError)
+    // If we can't parse cookies, clear them and redirect to signin
+    const response = NextResponse.redirect(new URL('/auth/signin', req.url))
+    
+    // Clear all auth-related cookies
+    const allCookies = req.cookies.getAll()
+    allCookies.forEach(cookie => {
+      if (cookie.name.startsWith('sb-') || cookie.name.includes('supabase')) {
+        response.cookies.delete(cookie.name)
+      }
+    })
+    
+    return response
   }
 
   // Protected routes that require authentication
