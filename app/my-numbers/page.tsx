@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -87,7 +88,7 @@ interface PurchasedNumber {
   }[];
 }
 
-export default function MyNumbersPage() {
+function MyNumbersContent() {
   const [numbers, setNumbers] = useState<PurchasedNumber[]>([]);
   const [selectedNumber, setSelectedNumber] = useState<PurchasedNumber | null>(null);
   const [loading, setLoading] = useState(true);
@@ -690,5 +691,20 @@ export default function MyNumbersPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MyNumbersPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <MyNumbersContent />
+    </Suspense>
   );
 }

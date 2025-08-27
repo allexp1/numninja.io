@@ -138,12 +138,12 @@ export class SmsConfigurationService {
       }
     }
 
-    const { data, error } = await supabase
-      .from('sms_configurations')
+    const { data, error } = await (supabase
+      .from('sms_configurations') as any)
       .update(updates)
       .eq('id', configId)
       .select()
-      .single() as any
+      .single()
 
     if (error) {
       console.error('Error updating SMS configuration:', error)

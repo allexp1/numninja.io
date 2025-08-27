@@ -3,11 +3,14 @@ import { createClient } from '@supabase/supabase-js'
 import { SmsConfigurationService } from '@/lib/sms-config'
 import type { Database } from '@/lib/database.types'
 
-// Create Supabase client with service role for server-side operations
-const supabase = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Create Supabase client - using anon key for now, should use service role in production
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+const supabase = supabaseUrl && supabaseKey ? createClient<Database>(
+  supabaseUrl,
+  supabaseKey
+) : null as any
 
 export async function GET(request: NextRequest) {
   try {
