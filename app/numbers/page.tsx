@@ -106,14 +106,20 @@ export default function NumbersPage() {
   const handleForwardingSave = (config: ForwardingConfig) => {
     if (pendingNumber && selectedCountry && selectedAreaCode) {
       // Map forwarding config to cart item format
-      let forwardingType: 'none' | 'call' | 'sms' | 'both' = 'call';
+      let forwardingType: 'none' | 'call' | 'sms' | 'both' = 'none';
       let forwardingDestination = config.value;
       let forwardingPrice = 0;
       
+      // Set forwarding type and price based on config
       if (config.type === 'sms_email') {
         forwardingType = 'sms';
-      } else if (config.type === 'phone_number' || config.type === 'sip_url') {
+        forwardingPrice = 2.00; // $2/month for SMS forwarding
+      } else if (config.type === 'phone_number') {
         forwardingType = 'call';
+        forwardingPrice = 5.00; // $5/month for call forwarding
+      } else if (config.type === 'sip_url') {
+        forwardingType = 'call';
+        forwardingPrice = 3.00; // $3/month for SIP forwarding
       }
       
       // Add to cart with proper CartItem structure

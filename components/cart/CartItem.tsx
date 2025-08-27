@@ -20,15 +20,15 @@ export function CartItem({ item, onRemove, onUpdate, showDetails = true }: CartI
   };
 
   return (
-    <div className="border rounded-lg p-4 space-y-3">
+    <div className="border rounded-lg p-4 space-y-3 bg-white">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <Phone className="h-4 w-4 text-muted-foreground" />
-            <h3 className="font-semibold text-lg">{item.phoneNumber}</h3>
+            <Phone className="h-4 w-4 text-gray-500" />
+            <h3 className="font-semibold text-lg text-gray-900">{item.phoneNumber}</h3>
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-600">
             {item.cityName}, {item.countryName} ({item.countryCode})
           </p>
         </div>
@@ -36,7 +36,7 @@ export function CartItem({ item, onRemove, onUpdate, showDetails = true }: CartI
           variant="ghost"
           size="icon"
           onClick={() => onRemove(item.id)}
-          className="text-destructive hover:text-destructive"
+          className="text-red-600 hover:text-red-700"
           aria-label="Remove from cart"
         >
           <Trash2 className="h-4 w-4" />
@@ -66,14 +66,14 @@ export function CartItem({ item, onRemove, onUpdate, showDetails = true }: CartI
       {/* Duration selector */}
       {showDetails && (
         <div className="flex items-center gap-2">
-          <label htmlFor={`duration-${item.id}`} className="text-sm text-muted-foreground">
+          <label htmlFor={`duration-${item.id}`} className="text-sm text-gray-600">
             Duration:
           </label>
           <select
             id={`duration-${item.id}`}
             value={item.monthlyDuration}
             onChange={handleDurationChange}
-            className="border rounded px-2 py-1 text-sm"
+            className="border rounded px-2 py-1 text-sm text-gray-900"
             disabled={!onUpdate}
           >
             {item.smsEnabled ? (
@@ -95,7 +95,7 @@ export function CartItem({ item, onRemove, onUpdate, showDetails = true }: CartI
             )}
           </select>
           {item.smsEnabled && (
-            <span className="text-xs text-muted-foreground">(6 months minimum for SMS)</span>
+            <span className="text-xs text-gray-500">(6 months minimum for SMS)</span>
           )}
         </div>
       )}
@@ -104,24 +104,24 @@ export function CartItem({ item, onRemove, onUpdate, showDetails = true }: CartI
       {showDetails && (
         <div className="space-y-1 pt-2 border-t">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Base price:</span>
-            <span>${item.basePrice.toFixed(2)} × {item.monthlyDuration} months</span>
+            <span className="text-gray-600">Base price:</span>
+            <span className="text-gray-900">${item.basePrice.toFixed(2)} × {item.monthlyDuration} months</span>
           </div>
           {item.smsEnabled && (
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">SMS addon:</span>
-              <span>${item.smsPrice.toFixed(2)} × {item.monthlyDuration} months</span>
+              <span className="text-gray-600">SMS addon:</span>
+              <span className="text-gray-900">${item.smsPrice.toFixed(2)} × {item.monthlyDuration} months</span>
             </div>
           )}
           {item.forwardingType !== 'none' && (
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Forwarding:</span>
-              <span>${item.forwardingPrice.toFixed(2)} × {item.monthlyDuration} months</span>
+              <span className="text-gray-600">Forwarding:</span>
+              <span className="text-gray-900">${item.forwardingPrice.toFixed(2)} × {item.monthlyDuration} months</span>
             </div>
           )}
           <div className="flex justify-between font-semibold pt-1 border-t">
-            <span>Item total:</span>
-            <span>${itemTotal.toFixed(2)}</span>
+            <span className="text-gray-900">Item total:</span>
+            <span className="text-gray-900">${itemTotal.toFixed(2)}</span>
           </div>
         </div>
       )}

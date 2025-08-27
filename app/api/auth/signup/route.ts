@@ -43,6 +43,9 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
+    // Get the correct base URL for email redirect
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    
     // Sign up the user
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
           phone,
           address
         },
-        emailRedirectTo: `${request.headers.get('origin')}/auth/callback`
+        emailRedirectTo: `${origin}/auth/callback`
       }
     })
 

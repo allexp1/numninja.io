@@ -7,24 +7,37 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res })
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  // Protect admin routes
+  // Protected routes that require authentication
+  const protectedPaths = ['/dashboard', '/my-numbers', '/checkout/success', '/admin']
+  const isProtectedRoute = protectedPaths.some(path => req.nextUrl.pathname.startsWith(path))
+
+  if (isProtectedRoute && !session) {
+    // Redirect to signin if not authenticated
+    const redirectUrl = new URL('/auth/signin', req.url)
+    redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
+    return NextResponse.redirect(redirectUrl)
+  }
+
+  // Protect admin routes specifically
   if (req.nextUrl.pathname.startsWith('/admin')) {
-    if (!user) {
-      // Redirect to signin if not authenticated
+    if (!session?.user) {
       return NextResponse.redirect(new URL('/auth/signin', req.url))
     }
 
     // Check if user is admin
-    // For now, check if email ends with @numninja.io or is a specific admin email
-    const isAdmin = user.email?.endsWith('@numninja.io') || 
-                   user.email === 'admin@example.com'
+    // Admin emails: admin@numninja.io or alex.p@didww.com (for testing)
+    const adminEmails = ['admin@numninja.io', 'alex.p@didww.com']
+    const isAdmin = session.user.email && (
+      adminEmails.includes(session.user.email) ||
+      session.user.email.endsWith('@numninja.io')
+    )
 
     if (!isAdmin) {
-      // Redirect to home if not an admin
-      return NextResponse.redirect(new URL('/', req.url))
+      // Redirect to dashboard if not an admin
+      return NextResponse.redirect(new URL('/dashboard', req.url))
     }
   }
 
@@ -32,5 +45,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*']
+  matcher: ['/dashboard/:path*', '/my-numbers/:path*', '/checkout/success', '/admin/:path*']
 }

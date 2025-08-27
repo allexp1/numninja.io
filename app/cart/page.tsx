@@ -118,14 +118,14 @@ export default function CartPage() {
               <CartSummary items={items} showDetails={true} />
 
               {/* Checkout Section */}
-              <div className="border rounded-lg p-4 space-y-3">
+              <div className="border rounded-lg p-4 space-y-3 bg-white">
                 {user ? (
                   <>
-                    <p className="text-sm text-muted-foreground">
-                      Signed in as <strong>{user.email}</strong>
+                    <p className="text-sm text-gray-600">
+                      Signed in as <strong className="text-gray-900">{user.email}</strong>
                     </p>
                     <Button
-                      className="w-full"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
                       size="lg"
                       onClick={handleCheckout}
                     >
@@ -135,11 +135,11 @@ export default function CartPage() {
                   </>
                 ) : (
                   <>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-gray-600">
                       Sign in to proceed to checkout
                     </p>
                     <Button
-                      className="w-full"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                       size="lg"
                       onClick={() => router.push('/auth/signin?redirect=/cart')}
                     >
@@ -158,22 +158,22 @@ export default function CartPage() {
                 )}
 
                 <div className="pt-3 border-t space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    ✓ Secure checkout powered by Stripe
+                  <p className="text-xs text-gray-600 flex items-center">
+                    <span className="text-green-600 mr-1">✓</span> Secure checkout powered by Stripe
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    ✓ Instant number activation after payment
+                  <p className="text-xs text-gray-600 flex items-center">
+                    <span className="text-green-600 mr-1">✓</span> Instant number activation after payment
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    ✓ 30-day money-back guarantee
+                  <p className="text-xs text-gray-600 flex items-center">
+                    <span className="text-green-600 mr-1">✓</span> 30-day money-back guarantee
                   </p>
                 </div>
               </div>
 
               {/* Additional Info */}
-              <div className="border rounded-lg p-4 space-y-2 bg-muted/50">
-                <h3 className="font-semibold text-sm">Important Information</h3>
-                <ul className="text-xs text-muted-foreground space-y-1">
+              <div className="border rounded-lg p-4 space-y-2 bg-gray-50">
+                <h3 className="font-semibold text-sm text-gray-900">Important Information</h3>
+                <ul className="text-xs text-gray-600 space-y-1">
                   <li>• All prices are in USD</li>
                   <li>• Numbers are activated immediately after payment</li>
                   <li>• SMS-enabled numbers require a 6-month minimum commitment</li>
