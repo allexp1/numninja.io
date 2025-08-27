@@ -12,11 +12,12 @@ export async function middleware(req: NextRequest) {
     error
   } = await supabase.auth.getSession()
 
-  // Log for debugging
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Middleware path:', req.nextUrl.pathname)
-    console.log('Session exists:', !!session)
-    console.log('Session error:', error)
+  // Log for debugging (also in production temporarily to debug issues)
+  console.log('Middleware path:', req.nextUrl.pathname)
+  console.log('Session exists:', !!session)
+  console.log('Session user:', session?.user?.email)
+  if (error) {
+    console.error('Session error:', error)
   }
 
   // Protected routes that require authentication
