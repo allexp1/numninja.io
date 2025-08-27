@@ -5,10 +5,21 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   // Check for malformed cookies and clean them
   const cookies = req.cookies.getAll()
-  const malformedCookies = cookies.filter(cookie =>
-    cookie.value.startsWith('base64-') ||
-    (cookie.value.startsWith('eyJ') && !cookie.value.includes('.'))
-  )
+  const malformedCookies = cookies.filter(cookie => {
+    // Only consider cookies as malformed if they have base64- prefix
+    // or if they're raw JWT tokens not properly formatted
+    // Don't flag chunked cookies (ending in .0, .1, etc) as malformed
+    if (cookie.value.startsWith('base64-')) {
+      return true
+    }
+    // Check for raw JWT tokens that aren't properly formatted
+    // Valid JWTs have 3 parts separated by dots
+    if (cookie.value.startsWith('eyJ')) {
+      const parts = cookie.value.split('.')
+      return parts.length !== 3
+    }
+    return false
+  })
   
   if (malformedCookies.length > 0) {
     console.log('Found malformed cookies, redirecting to clear them:', malformedCookies.map(c => c.name))
