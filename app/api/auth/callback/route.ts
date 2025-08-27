@@ -17,6 +17,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const cookieStore = cookies()
+    
+    // Clear any malformed cookies first
+    const allCookies = cookieStore.getAll()
+    for (const cookie of allCookies) {
+      // Remove any cookies that start with 'sb-' or contain base64 JWT tokens
+      if (cookie.name.startsWith('sb-') ||
+          cookie.value.startsWith('base64-') ||
+          cookie.value.startsWith('eyJ')) {
+        console.log(`Clearing malformed cookie: ${cookie.name}`)
+        cookieStore.delete(cookie.name)
+      }
+    }
+    
     // Create Supabase client using auth-helpers for proper cookie handling
     const supabase = createRouteHandlerClient({ cookies })
 
@@ -38,6 +52,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('Session established for user:', data.session.user.email)
+    console.log('Session access token exists:', !!data.session.access_token)
 
     // Redirect to the appropriate page
     const redirectUrl = next.includes('reset-password')
