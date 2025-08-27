@@ -1,6 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import { DIDWWService } from './didww';
-import { Database, ProvisioningStatus, PurchasedNumber, ProvisioningQueue, NumberConfiguration } from './database.types';
+import {
+  Database,
+  ProvisioningStatus,
+  PurchasedNumber,
+  PurchasedNumberUpdate,
+  ProvisioningQueue,
+  ProvisioningQueueUpdate,
+  NumberConfiguration,
+  NumberConfigurationInsert,
+  Country,
+  AreaCode
+} from './database.types';
 
 export interface ProvisioningConfig {
   forwardingType?: 'mobile' | 'landline' | 'voip' | 'none';
@@ -89,7 +100,7 @@ class MockDIDWWService {
 }
 
 export class ProvisioningService {
-  private supabase;
+  private supabase: ReturnType<typeof createClient<Database>>;
   private didwwService: DIDWWService | MockDIDWWService;
   private useMock: boolean;
 
@@ -126,42 +137,49 @@ export class ProvisioningService {
         throw new Error(`Purchased number not found: ${purchasedNumberId}`);
       }
 
+      const typedPurchasedNumber = purchasedNumber as unknown as PurchasedNumber;
+
       // Get country and area code details
       const { data: country } = await this.supabase
         .from('countries')
         .select('*')
-        .eq('id', purchasedNumber.country_id)
-        .single();
+        .eq('id', typedPurchasedNumber.country_id)
+        .single() as any;
 
       const { data: areaCode } = await this.supabase
         .from('area_codes')
         .select('*')
-        .eq('id', purchasedNumber.area_code_id)
-        .single();
+        .eq('id', typedPurchasedNumber.area_code_id)
+        .single() as any;
 
       if (!country || !areaCode) {
         throw new Error('Country or area code not found');
       }
+
+      const typedCountry = country as Country;
+      const typedAreaCode = areaCode as AreaCode;
 
       // Update status to provisioning
       await this.updateProvisioningStatus(purchasedNumberId, 'provisioning', retryCount);
 
       // Provision the number with DIDWW (or mock)
       const { didId, orderId } = await this.callProvisionAPI(
-        purchasedNumber.phone_number,
-        country.code,
-        areaCode.area_code
+        typedPurchasedNumber.phone_number,
+        typedCountry.code,
+        typedAreaCode.area_code
       );
 
       // Update the purchased number with DIDWW ID
-      const { error: updateError } = await this.supabase
-        .from('purchased_numbers')
-        .update({
-          didww_did_id: didId,
-          provisioning_status: 'active',
-          provisioned_at: new Date().toISOString(),
-          provisioning_attempts: retryCount + 1
-        } as any)
+      const updateData: PurchasedNumberUpdate = {
+        didww_did_id: didId,
+        provisioning_status: 'active',
+        provisioned_at: new Date().toISOString(),
+        provisioning_attempts: retryCount + 1
+      };
+      
+      const { error: updateError } = await (this.supabase
+        .from('purchased_numbers') as any)
+        .update(updateData)
         .eq('id', purchasedNumberId);
 
       if (updateError) {
@@ -261,10 +279,10 @@ export class ProvisioningService {
         .from('number_configurations')
         .select('id')
         .eq('purchased_number_id', purchasedNumberId)
-        .single();
+        .single() as any;
 
       const configData = {
-        forwarding_type: config.forwardingType || 'none',
+        forwarding_type: (config.forwardingType || 'none') as 'mobile' | 'landline' | 'voip' | 'none',
         forwarding_number: config.forwardingNumber || null,
         voicemail_enabled: config.voicemailEnabled ?? true,
         voicemail_email: config.voicemailEmail || null,
@@ -272,17 +290,19 @@ export class ProvisioningService {
       };
 
       if (existingConfig) {
-        await this.supabase
-          .from('number_configurations')
-          .update(configData as any)
-          .eq('id', existingConfig.id);
+        const typedConfig = existingConfig as { id: string };
+        await (this.supabase
+          .from('number_configurations') as any)
+          .update(configData)
+          .eq('id', typedConfig.id);
       } else {
-        await this.supabase
-          .from('number_configurations')
-          .insert({
-            ...configData,
-            purchased_number_id: purchasedNumberId
-          } as any);
+        const insertData: NumberConfigurationInsert = {
+          ...configData,
+          purchased_number_id: purchasedNumberId
+        };
+        await (this.supabase
+          .from('number_configurations') as any)
+          .insert(insertData);
       }
     } catch (error) {
       console.error('Error configuring forwarding:', error);
@@ -299,23 +319,27 @@ export class ProvisioningService {
         .from('purchased_numbers')
         .select('didww_did_id')
         .eq('id', purchasedNumberId)
-        .single();
+        .single() as any;
 
-      if (purchasedNumber?.didww_did_id) {
+      const typedNumber = purchasedNumber as { didww_did_id: string | null } | null;
+
+      if (typedNumber?.didww_did_id) {
         if (this.useMock) {
-          await (this.didwwService as MockDIDWWService).cancelNumber(purchasedNumber.didww_did_id);
+          await (this.didwwService as MockDIDWWService).cancelNumber(typedNumber.didww_did_id);
         } else {
           // Real DIDWW cancellation would go here
-          console.log('Cancelling DID:', purchasedNumber.didww_did_id);
+          console.log('Cancelling DID:', typedNumber.didww_did_id);
         }
       }
 
-      await this.supabase
-        .from('purchased_numbers')
-        .update({
-          provisioning_status: 'cancelled',
-          is_active: false
-        } as any)
+      const cancelUpdateData: PurchasedNumberUpdate = {
+        provisioning_status: 'cancelled',
+        is_active: false
+      };
+      
+      await (this.supabase
+        .from('purchased_numbers') as any)
+        .update(cancelUpdateData)
         .eq('id', purchasedNumberId);
     } catch (error) {
       console.error('Error cancelling number:', error);
@@ -332,23 +356,27 @@ export class ProvisioningService {
         .from('purchased_numbers')
         .select('didww_did_id')
         .eq('id', purchasedNumberId)
-        .single();
+        .single() as any;
 
-      if (purchasedNumber?.didww_did_id) {
+      const typedNumber = purchasedNumber as { didww_did_id: string | null } | null;
+
+      if (typedNumber?.didww_did_id) {
         if (this.useMock) {
-          await (this.didwwService as MockDIDWWService).suspendNumber(purchasedNumber.didww_did_id);
+          await (this.didwwService as MockDIDWWService).suspendNumber(typedNumber.didww_did_id);
         } else {
           // Real DIDWW suspension would go here
-          console.log('Suspending DID:', purchasedNumber.didww_did_id);
+          console.log('Suspending DID:', typedNumber.didww_did_id);
         }
       }
 
-      await this.supabase
-        .from('purchased_numbers')
-        .update({
-          provisioning_status: 'suspended',
-          is_active: false
-        } as any)
+      const suspendUpdateData: PurchasedNumberUpdate = {
+        provisioning_status: 'suspended',
+        is_active: false
+      };
+      
+      await (this.supabase
+        .from('purchased_numbers') as any)
+        .update(suspendUpdateData)
         .eq('id', purchasedNumberId);
     } catch (error) {
       console.error('Error suspending number:', error);
@@ -365,23 +393,27 @@ export class ProvisioningService {
         .from('purchased_numbers')
         .select('didww_did_id')
         .eq('id', purchasedNumberId)
-        .single();
+        .single() as any;
 
-      if (purchasedNumber?.didww_did_id) {
+      const typedNumber = purchasedNumber as { didww_did_id: string | null } | null;
+
+      if (typedNumber?.didww_did_id) {
         if (this.useMock) {
-          await (this.didwwService as MockDIDWWService).reactivateNumber(purchasedNumber.didww_did_id);
+          await (this.didwwService as MockDIDWWService).reactivateNumber(typedNumber.didww_did_id);
         } else {
           // Real DIDWW reactivation would go here
-          console.log('Reactivating DID:', purchasedNumber.didww_did_id);
+          console.log('Reactivating DID:', typedNumber.didww_did_id);
         }
       }
 
-      await this.supabase
-        .from('purchased_numbers')
-        .update({
-          provisioning_status: 'active',
-          is_active: true
-        } as any)
+      const reactivateUpdateData: PurchasedNumberUpdate = {
+        provisioning_status: 'active',
+        is_active: true
+      };
+      
+      await (this.supabase
+        .from('purchased_numbers') as any)
+        .update(reactivateUpdateData)
         .eq('id', purchasedNumberId);
     } catch (error) {
       console.error('Error reactivating number:', error);
@@ -398,14 +430,14 @@ export class ProvisioningService {
     priority: number = 5,
     metadata?: any
   ): Promise<void> {
-    await this.supabase
-      .from('provisioning_queue')
+    await (this.supabase
+      .from('provisioning_queue') as any)
       .insert({
         purchased_number_id: purchasedNumberId,
         action,
         priority,
         metadata
-      } as any);
+      });
   }
 
   /**
@@ -420,14 +452,16 @@ export class ProvisioningService {
       .lte('scheduled_for', new Date().toISOString())
       .order('priority', { ascending: false })
       .order('created_at', { ascending: true })
-      .limit(limit);
+      .limit(limit) as any;
 
-    if (!jobs || jobs.length === 0) {
+    const typedJobs = jobs as ProvisioningQueue[] | null;
+
+    if (!typedJobs || typedJobs.length === 0) {
       return;
     }
 
     // Process each job
-    for (const job of jobs) {
+    for (const job of typedJobs) {
       await this.processProvisioningJob(job);
     }
   }
@@ -438,12 +472,14 @@ export class ProvisioningService {
   private async processProvisioningJob(job: ProvisioningQueue): Promise<void> {
     try {
       // Mark job as processing
-      await this.supabase
-        .from('provisioning_queue')
-        .update({ 
-          status: 'processing',
-          attempts: job.attempts + 1
-        } as any)
+      const processingUpdate: ProvisioningQueueUpdate = {
+        status: 'processing',
+        attempts: job.attempts + 1
+      };
+      
+      await (this.supabase
+        .from('provisioning_queue') as any)
+        .update(processingUpdate)
         .eq('id', job.id);
 
       // Execute the action
@@ -456,12 +492,14 @@ export class ProvisioningService {
             .from('purchased_numbers')
             .select('didww_did_id')
             .eq('id', job.purchased_number_id)
-            .single();
+            .single() as any;
           
-          if (number?.didww_did_id) {
+          const typedNum = number as { didww_did_id: string | null } | null;
+          
+          if (typedNum?.didww_did_id) {
             await this.configureForwarding(
-              job.purchased_number_id, 
-              number.didww_did_id, 
+              job.purchased_number_id,
+              typedNum.didww_did_id,
               (job.metadata as any)?.config
             );
           }
@@ -478,26 +516,30 @@ export class ProvisioningService {
       }
 
       // Mark job as completed
-      await this.supabase
-        .from('provisioning_queue')
-        .update({ 
-          status: 'completed',
-          processed_at: new Date().toISOString()
-        } as any)
+      const completedUpdate: ProvisioningQueueUpdate = {
+        status: 'completed',
+        processed_at: new Date().toISOString()
+      };
+      
+      await (this.supabase
+        .from('provisioning_queue') as any)
+        .update(completedUpdate)
         .eq('id', job.id);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Mark job as failed
-      await this.supabase
-        .from('provisioning_queue')
-        .update({ 
-          status: job.attempts >= job.max_attempts ? 'failed' : 'pending',
-          error_message: errorMessage,
-          scheduled_for: job.attempts < job.max_attempts 
-            ? new Date(Date.now() + Math.pow(2, job.attempts) * 60000).toISOString() // Exponential backoff
-            : undefined
-        } as any)
+      const failedUpdate: ProvisioningQueueUpdate = {
+        status: job.attempts >= job.max_attempts ? 'failed' : 'pending',
+        error_message: errorMessage,
+        scheduled_for: job.attempts < job.max_attempts
+          ? new Date(Date.now() + Math.pow(2, job.attempts) * 60000).toISOString() // Exponential backoff
+          : undefined
+      };
+      
+      await (this.supabase
+        .from('provisioning_queue') as any)
+        .update(failedUpdate)
         .eq('id', job.id);
     }
   }
@@ -511,13 +553,15 @@ export class ProvisioningService {
     attempts: number,
     error?: string
   ): Promise<void> {
-    await this.supabase
-      .from('purchased_numbers')
-      .update({
-        provisioning_status: status,
-        provisioning_attempts: attempts,
-        last_provision_error: error || null
-      } as any)
+    const statusUpdate: PurchasedNumberUpdate = {
+      provisioning_status: status,
+      provisioning_attempts: attempts,
+      last_provision_error: error || null
+    };
+    
+    await (this.supabase
+      .from('purchased_numbers') as any)
+      .update(statusUpdate)
       .eq('id', purchasedNumberId);
   }
 
@@ -550,12 +594,14 @@ export class ProvisioningService {
    * Helper: Mark provisioning as complete in queue
    */
   private async markProvisioningComplete(purchasedNumberId: string): Promise<void> {
-    await this.supabase
-      .from('provisioning_queue')
-      .update({
-        status: 'completed',
-        processed_at: new Date().toISOString()
-      } as any)
+    const completeUpdate: ProvisioningQueueUpdate = {
+      status: 'completed',
+      processed_at: new Date().toISOString()
+    };
+    
+    await (this.supabase
+      .from('provisioning_queue') as any)
+      .update(completeUpdate)
       .eq('purchased_number_id', purchasedNumberId)
       .eq('action', 'provision')
       .eq('status', 'processing');
@@ -568,8 +614,8 @@ export class ProvisioningService {
     const delayMinutes = Math.pow(2, retryCount); // Exponential backoff: 2, 4, 8 minutes
     const scheduledFor = new Date(Date.now() + delayMinutes * 60000);
 
-    await this.supabase
-      .from('provisioning_queue')
+    await (this.supabase
+      .from('provisioning_queue') as any)
       .insert({
         purchased_number_id: purchasedNumberId,
         action: 'provision',
@@ -577,7 +623,7 @@ export class ProvisioningService {
         attempts: retryCount,
         scheduled_for: scheduledFor.toISOString(),
         metadata: { isRetry: true, previousAttempts: retryCount }
-      } as any);
+      });
   }
 }
 
