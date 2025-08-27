@@ -166,7 +166,7 @@ async function sendEmailNotifications(
             .update({
               status: 'sent',
               sent_at: new Date().toISOString()
-            } as any)
+            })
             .eq('email_recipient', recipient)
             .eq('status', 'pending')
         }
@@ -179,7 +179,7 @@ async function sendEmailNotifications(
           .update({
             status: 'failed',
             error_message: error instanceof Error ? error.message : 'Unknown error'
-          } as any)
+          })
           .eq('email_recipient', recipient)
           .eq('status', 'pending')
       }
