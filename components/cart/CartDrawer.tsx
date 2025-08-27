@@ -60,19 +60,19 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
       {/* Drawer */}
       <div
-        className={`fixed right-0 top-0 h-full w-full max-w-md bg-background shadow-xl transform transition-transform z-50 ${
+        className={`fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl transform transition-transform z-50 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cart-drawer-title"
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full bg-white">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center justify-between p-4 border-b bg-white">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              <h2 id="cart-drawer-title" className="text-lg font-semibold">
+              <ShoppingCart className="h-5 w-5 text-gray-700" />
+              <h2 id="cart-drawer-title" className="text-lg font-semibold text-gray-900">
                 Shopping Cart ({items.length})
               </h2>
             </div>
@@ -87,11 +87,11 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           </div>
 
           {/* Cart Items */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
             {items.length === 0 ? (
               <div className="text-center py-8">
-                <ShoppingCart className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-muted-foreground mb-4">Your cart is empty</p>
+                <ShoppingCart className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-600 mb-4">Your cart is empty</p>
                 <Button onClick={handleContinueShopping}>
                   Continue Shopping
                 </Button>
@@ -113,12 +113,12 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
           {/* Footer with Summary */}
           {items.length > 0 && (
-            <div className="border-t p-4 space-y-4">
+            <div className="border-t p-4 space-y-4 bg-white">
               <CartSummary items={items} showDetails={false} />
               
               <div className="space-y-2">
                 <Button
-                  className="w-full"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                   size="lg"
                   onClick={handleCheckout}
                 >
