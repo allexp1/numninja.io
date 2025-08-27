@@ -63,7 +63,7 @@ export class SmsConfigurationService {
       .from('sms_configurations')
       .select('*')
       .eq('purchased_number_id', purchasedNumberId)
-      .single()
+      .single() as any
 
     if (configError && configError.code !== 'PGRST116') {
       console.error('Error fetching SMS configuration:', configError)
@@ -72,10 +72,12 @@ export class SmsConfigurationService {
 
     if (!config) return null
 
+    const typedConfig = config as SmsConfiguration
+
     const { data: rules, error: rulesError } = await supabase
       .from('sms_filter_rules')
       .select('*')
-      .eq('sms_configuration_id', config.id)
+      .eq('sms_configuration_id', typedConfig.id)
       .order('priority', { ascending: true })
 
     if (rulesError) {
@@ -84,7 +86,7 @@ export class SmsConfigurationService {
     }
 
     return {
-      ...config,
+      ...typedConfig,
       filter_rules: rules || [],
     }
   }
@@ -141,7 +143,7 @@ export class SmsConfigurationService {
       .update(updates)
       .eq('id', configId)
       .select()
-      .single()
+      .single() as any
 
     if (error) {
       console.error('Error updating SMS configuration:', error)
@@ -163,19 +165,20 @@ export class SmsConfigurationService {
       .from('sms_configurations')
       .select('forward_to_emails')
       .eq('id', configId)
-      .single()
+      .single() as any
 
     if (fetchError) {
       console.error('Error fetching configuration:', fetchError)
       throw fetchError
     }
 
-    const emails = config.forward_to_emails || []
+    const typedConfig = config as Pick<SmsConfiguration, 'forward_to_emails'>
+    const emails = typedConfig.forward_to_emails || []
     if (!emails.includes(email)) {
       emails.push(email)
 
-      const { data, error } = await supabase
-        .from('sms_configurations')
+      const { data, error } = await (supabase
+        .from('sms_configurations') as any)
         .update({ forward_to_emails: emails })
         .eq('id', configId)
         .select()
@@ -189,7 +192,7 @@ export class SmsConfigurationService {
       return data
     }
 
-    return config as SmsConfiguration
+    return typedConfig as SmsConfiguration
   }
 
   /**
@@ -200,17 +203,18 @@ export class SmsConfigurationService {
       .from('sms_configurations')
       .select('forward_to_emails')
       .eq('id', configId)
-      .single()
+      .single() as any
 
     if (fetchError) {
       console.error('Error fetching configuration:', fetchError)
       throw fetchError
     }
 
-    const emails = (config.forward_to_emails || []).filter(e => e !== email)
+    const typedConfig = config as Pick<SmsConfiguration, 'forward_to_emails'>
+    const emails = (typedConfig.forward_to_emails || []).filter((e: string) => e !== email)
 
-    const { data, error } = await supabase
-      .from('sms_configurations')
+    const { data, error } = await (supabase
+      .from('sms_configurations') as any)
       .update({ forward_to_emails: emails })
       .eq('id', configId)
       .select()
@@ -249,9 +253,9 @@ export class SmsConfigurationService {
     ruleId: string,
     updates: SmsFilterRuleUpdate
   ): Promise<SmsFilterRule> {
-    const { data, error } = await supabase
-      .from('sms_filter_rules')
-      .update(updates as any)
+    const { data, error } = await (supabase
+      .from('sms_filter_rules') as any)
+      .update(updates)
       .eq('id', ruleId)
       .select()
       .single()
@@ -358,9 +362,9 @@ export class SmsConfigurationService {
 
       const { data: smsRecord, error: smsError } = await supabase
         .from('sms_records')
-        .insert(mockSms)
+        .insert(mockSms as any)
         .select()
-        .single()
+        .single() as any
 
       if (smsError) {
         throw smsError
@@ -377,9 +381,10 @@ export class SmsConfigurationService {
       }
 
       // Process forwarding
+      const typedSmsRecord = smsRecord as SMSRecord
       const emails = config.forward_to_emails || []
       const forwardingLogs: SmsForwardingLogInsert[] = emails.map(email => ({
-        sms_record_id: smsRecord.id,
+        sms_record_id: typedSmsRecord.id,
         email_recipient: email,
         status: 'sent',
         sent_at: new Date().toISOString(),
@@ -394,7 +399,7 @@ export class SmsConfigurationService {
       // Process auto-reply if enabled
       if (config.auto_reply_enabled && config.auto_reply_message) {
         const autoReplyLog: SmsAutoReplyLogInsert = {
-          sms_record_id: smsRecord.id,
+          sms_record_id: typedSmsRecord.id,
           reply_message: config.auto_reply_message,
           status: 'sent',
           sent_at: new Date().toISOString(),
@@ -444,15 +449,17 @@ export class SmsConfigurationService {
         message: sms.message,
         delivered: true,
         delivered_at: new Date().toISOString(),
-      })
+      } as any)
       .select()
-      .single()
+      .single() as any
 
     if (smsError) {
       console.error('Error saving SMS record:', smsError)
       throw smsError
     }
 
+    const typedSmsRecord = smsRecord as SMSRecord
+    
     // Get SMS configuration
     const config = await this.getConfigurationWithRules(purchasedNumberId)
 
@@ -487,7 +494,7 @@ export class SmsConfigurationService {
     // Forward to emails if allowed
     if (shouldForward && config.forward_to_emails && config.forward_to_emails.length > 0) {
       const forwardingLogs: SmsForwardingLogInsert[] = config.forward_to_emails.map(email => ({
-        sms_record_id: smsRecord.id,
+        sms_record_id: typedSmsRecord.id,
         email_recipient: email,
         status: 'pending',
       }))
@@ -498,19 +505,19 @@ export class SmsConfigurationService {
 
       // In a real implementation, this would trigger email sending
       // For now, we'll just mark them as sent
-      await supabase
-        .from('sms_forwarding_logs')
-        .update({ 
+      await (supabase
+        .from('sms_forwarding_logs') as any)
+        .update({
           status: 'sent',
           sent_at: new Date().toISOString(),
         })
-        .eq('sms_record_id', smsRecord.id)
+        .eq('sms_record_id', typedSmsRecord.id)
     }
 
     // Send auto-reply if configured
     if ((shouldAutoReply || config.auto_reply_enabled) && config.auto_reply_message) {
       const autoReplyLog: SmsAutoReplyLogInsert = {
-        sms_record_id: smsRecord.id,
+        sms_record_id: typedSmsRecord.id,
         reply_message: config.auto_reply_message,
         status: 'pending',
       }
@@ -519,18 +526,19 @@ export class SmsConfigurationService {
         .from('sms_auto_reply_logs')
         .insert(autoReplyLog as any)
         .select()
-        .single()
+        .single() as any
 
       // In a real implementation, this would trigger SMS sending via DIDWW
       // For now, we'll just mark it as sent
       if (replyLog) {
-        await supabase
-          .from('sms_auto_reply_logs')
-          .update({ 
+        const typedReplyLog = replyLog as SmsAutoReplyLog
+        await (supabase
+          .from('sms_auto_reply_logs') as any)
+          .update({
             status: 'sent',
             sent_at: new Date().toISOString(),
           })
-          .eq('id', replyLog.id)
+          .eq('id', typedReplyLog.id)
       }
     }
   }
@@ -597,9 +605,9 @@ export class SmsConfigurationService {
    * Resend failed SMS forwards
    */
   static async resendFailedForward(logId: string): Promise<SmsForwardingLog> {
-    const { data, error } = await supabase
-      .from('sms_forwarding_logs')
-      .update({ 
+    const { data, error } = await (supabase
+      .from('sms_forwarding_logs') as any)
+      .update({
         status: 'sent',
         sent_at: new Date().toISOString(),
         error_message: null,
