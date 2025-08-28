@@ -2,12 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from './AuthProvider'
 import { validateEmail } from '@/lib/supabase'
 
 export function SignInForm() {
   const router = useRouter()
-  const { signIn } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -40,15 +38,33 @@ export function SignInForm() {
     setLoading(true)
 
     try {
-      const { data, error } = await signIn(formData.email, formData.password)
+      // Use the API route instead of client-side auth
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+        credentials: 'include', // Important for cookies
+      })
 
-      if (error) {
-        setError(error.message)
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to sign in')
       } else {
-        // Redirect to dashboard or home page
-        router.push('/')
+        // Get the redirect URL from query params or default to dashboard
+        const params = new URLSearchParams(window.location.search)
+        const redirectTo = params.get('redirectTo') || '/dashboard'
+        
+        // Force a hard navigation to ensure cookies are properly set
+        window.location.href = redirectTo
       }
     } catch (err) {
+      console.error('Sign in error:', err)
       setError('An unexpected error occurred')
     } finally {
       setLoading(false)

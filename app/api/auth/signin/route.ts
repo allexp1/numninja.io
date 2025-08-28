@@ -52,7 +52,8 @@ export async function POST(request: NextRequest) {
     console.log('User signed in successfully:', email)
     console.log('Session created:', !!data.session.access_token)
 
-    return NextResponse.json(
+    // The auth-helpers should handle cookies, but let's ensure we're returning them
+    const response = NextResponse.json(
       {
         message: 'Sign in successful',
         user: data.user,
@@ -64,6 +65,16 @@ export async function POST(request: NextRequest) {
       },
       { status: 200 }
     )
+
+    // Get the cookies that were set by supabase
+    const cookieStore = cookies()
+    const supabaseCookies = cookieStore.getAll().filter(c =>
+      c.name.startsWith('sb-') || c.name.includes('supabase')
+    )
+    
+    console.log('Cookies after signin:', supabaseCookies.map(c => c.name))
+
+    return response
   } catch (error) {
     console.error('Sign in error:', error)
     return NextResponse.json(
