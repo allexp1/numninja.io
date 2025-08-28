@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { validateEmail } from '@/lib/supabase'
+import { authStorage } from '@/lib/auth'
 
 export function SignInForm() {
   const router = useRouter()
@@ -38,8 +39,8 @@ export function SignInForm() {
     setLoading(true)
 
     try {
-      // Use the fixed API route that properly sets cookies
-      const response = await fetch('/api/auth/signin-fixed', {
+      // Call the signin API
+      const response = await fetch('/api/auth/signin', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,20 +49,35 @@ export function SignInForm() {
           email: formData.email,
           password: formData.password,
         }),
-        credentials: 'include', // Important for cookies
       })
 
       const data = await response.json()
 
       if (!response.ok) {
         setError(data.error || 'Failed to sign in')
+      } else if (data.session && data.user) {
+        // Store tokens and user info in localStorage
+        const stored = authStorage.setTokens(
+          {
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            expires_at: data.session.expires_at
+          },
+          data.user
+        )
+
+        if (stored) {
+          // Get the redirect URL from query params or default to dashboard
+          const params = new URLSearchParams(window.location.search)
+          const redirectTo = params.get('redirectTo') || '/dashboard'
+          
+          // Use router.push for client-side navigation
+          router.push(redirectTo)
+        } else {
+          setError('Failed to store authentication data')
+        }
       } else {
-        // Get the redirect URL from query params or default to dashboard
-        const params = new URLSearchParams(window.location.search)
-        const redirectTo = params.get('redirectTo') || '/dashboard'
-        
-        // Force a hard navigation to ensure cookies are properly set
-        window.location.href = redirectTo
+        setError('Invalid response from server')
       }
     } catch (err) {
       console.error('Sign in error:', err)
@@ -69,6 +85,14 @@ export function SignInForm() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Test user helper - for quick testing
+  const fillTestUser = () => {
+    setFormData({
+      email: 'admin@test.com',
+      password: 'Test123456'
+    })
   }
 
   return (
@@ -116,6 +140,13 @@ export function SignInForm() {
         <a href="/auth/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-500">
           Forgot your password?
         </a>
+        <button
+          type="button"
+          onClick={fillTestUser}
+          className="text-xs text-gray-500 hover:text-gray-700 underline"
+        >
+          Use test credentials
+        </button>
       </div>
 
       <button

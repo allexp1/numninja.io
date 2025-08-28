@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { authStorage, authFetch } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { 
   Phone, 
@@ -16,11 +17,6 @@ import {
   PhoneForwarded,
   AlertCircle
 } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface PurchasedNumber {
   id: string;
@@ -55,7 +51,7 @@ interface PurchasedNumber {
   };
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [numbers, setNumbers] = useState<PurchasedNumber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,33 +59,16 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    checkAuth();
     fetchNumbers();
   }, []);
-
-  const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/auth/signin');
-    }
-  };
 
   const fetchNumbers = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        router.push('/auth/signin');
-        return;
-      }
-
-      const response = await fetch('/api/provisioning/status', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
+      // Use authFetch which includes the auth token
+      const response = await authFetch('/api/provisioning/status', {
+        method: 'POST'
       });
 
       if (!response.ok) {
@@ -109,19 +88,9 @@ export default function DashboardPage() {
   const retryProvisioning = async (purchasedNumberId: string) => {
     try {
       setRetrying(purchasedNumberId);
-      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        router.push('/auth/signin');
-        return;
-      }
-
-      const response = await fetch('/api/provisioning/retry', {
+      const response = await authFetch('/api/provisioning/retry', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ purchasedNumberId })
       });
 
@@ -415,5 +384,13 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthGuard requireAuth={true}>
+      <DashboardContent />
+    </AuthGuard>
   );
 }

@@ -3,7 +3,8 @@
 import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { authFetch } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { 
   Phone, 
@@ -27,11 +28,6 @@ import {
   Edit2,
   Trash2
 } from 'lucide-react';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface NumberUsageStats {
   total_calls: number;
@@ -110,7 +106,6 @@ function MyNumbersContent() {
   const numberIdParam = searchParams.get('id');
 
   useEffect(() => {
-    checkAuth();
     fetchNumbers();
   }, []);
 
@@ -124,29 +119,12 @@ function MyNumbersContent() {
     }
   }, [numberIdParam, numbers]);
 
-  const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/auth/signin');
-    }
-  };
-
   const fetchNumbers = async () => {
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        router.push('/auth/signin');
-        return;
-      }
-
-      const response = await fetch('/api/provisioning/status', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await authFetch('/api/provisioning/status', {
+        method: 'POST'
       });
 
       if (!response.ok) {
@@ -171,15 +149,8 @@ function MyNumbersContent() {
 
   const loadNumberDetails = async (numberId: string) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
       // Load configuration
-      const configResponse = await fetch(`/api/provisioning/configure?purchasedNumberId=${numberId}`, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      });
+      const configResponse = await authFetch(`/api/provisioning/configure?purchasedNumberId=${numberId}`);
 
       if (configResponse.ok) {
         const configResult = await configResponse.json();
@@ -238,19 +209,9 @@ function MyNumbersContent() {
 
     try {
       setSaving(true);
-      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!session) {
-        router.push('/auth/signin');
-        return;
-      }
-
-      const response = await fetch('/api/provisioning/configure', {
+      const response = await authFetch('/api/provisioning/configure', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           purchasedNumberId: selectedNumber.id,
           config: configForm
@@ -696,15 +657,17 @@ function MyNumbersContent() {
 
 export default function MyNumbersPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-          <p className="text-gray-600">Loading...</p>
+    <AuthGuard requireAuth={true}>
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-gray-600">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
-      <MyNumbersContent />
-    </Suspense>
+      }>
+        <MyNumbersContent />
+      </Suspense>
+    </AuthGuard>
   );
 }
