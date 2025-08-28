@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { validateEmail } from '@/lib/supabase'
 
@@ -25,8 +24,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create Supabase client with proper cookie handling
-    const supabase = createRouteHandlerClient({ cookies })
+    // Create Supabase admin client
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
 
     // Sign in the user
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -50,9 +58,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('User signed in successfully:', email)
-    console.log('Session created:', !!data.session.access_token)
+    console.log('Session created, setting cookies...')
 
-    // The auth-helpers should handle cookies, but let's ensure we're returning them
+    // Create response
     const response = NextResponse.json(
       {
         message: 'Sign in successful',
@@ -66,13 +74,37 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
 
-    // Get the cookies that were set by supabase
-    const cookieStore = cookies()
-    const supabaseCookies = cookieStore.getAll().filter(c =>
-      c.name.startsWith('sb-') || c.name.includes('supabase')
+    // Manually set the auth cookies
+    const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!)
+    const projectRef = supabaseUrl.hostname.split('.')[0]
+    
+    // Set the access token cookie
+    response.cookies.set(
+      `sb-${projectRef}-auth-token`,
+      data.session.access_token,
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      }
     )
     
-    console.log('Cookies after signin:', supabaseCookies.map(c => c.name))
+    // Set the refresh token cookie
+    response.cookies.set(
+      `sb-${projectRef}-auth-refresh-token`,
+      data.session.refresh_token,
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/',
+      }
+    )
+
+    console.log('Cookies set for project:', projectRef)
 
     return response
   } catch (error) {
