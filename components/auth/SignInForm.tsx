@@ -38,8 +38,8 @@ export function SignInForm() {
     setLoading(true)
 
     try {
-      // Use the API route instead of client-side auth
-      const response = await fetch('/api/auth/signin', {
+      // Use the fixed API route that properly sets cookies
+      const response = await fetch('/api/auth/signin-fixed', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
