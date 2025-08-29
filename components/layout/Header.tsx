@@ -7,7 +7,7 @@ import { User, LogOut, Phone, Menu, X } from 'lucide-react';
 import { CartIcon } from '@/components/cart/CartIcon';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { Button } from '@/components/ui/button';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase-client';
 
 export function Header() {
   const router = useRouter();
@@ -15,7 +15,6 @@ export function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     checkUser();
@@ -29,7 +28,7 @@ export function Header() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, []);
 
   const checkUser = async () => {
     try {

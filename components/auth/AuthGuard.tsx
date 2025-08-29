@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { getCurrentSession, isAdmin as checkIsAdmin } from '@/lib/supabase-auth'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase-client'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -23,7 +23,6 @@ export function AuthGuard({
   const [isChecking, setIsChecking] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -66,7 +65,7 @@ export function AuthGuard({
     return () => {
       subscription.unsubscribe()
     }
-  }, [requireAuth, requireAdmin, router, pathname, supabase])
+  }, [requireAuth, requireAdmin, router, pathname])
 
   // Show loading state
   if (isChecking) {

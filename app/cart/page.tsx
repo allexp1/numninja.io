@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/cart/CartItem';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { useCart } from '@/hooks/useCart';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '@/lib/supabase-client';
 
 export default function CartPage() {
   const router = useRouter();
@@ -16,7 +16,6 @@ export default function CartPage() {
   const [isClient, setIsClient] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient();
 
   useEffect(() => {
     setIsClient(true);
@@ -31,7 +30,7 @@ export default function CartPage() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, []);
 
   const checkUser = async () => {
     try {

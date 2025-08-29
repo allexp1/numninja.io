@@ -1,8 +1,7 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from './supabase-client'
 
-// Client-side Supabase client for auth operations
-export const supabaseAuth = createClientComponentClient()
+// Use the shared Supabase client for auth operations
+export const supabaseAuth = supabase
 
 // Get current session from Supabase (not localStorage)
 export async function getCurrentSession() {
