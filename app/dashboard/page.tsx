@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { authStorage, authFetch } from '@/lib/auth';
+import { authenticatedFetch } from '@/lib/supabase-auth';
 import { Button } from '@/components/ui/button';
 import { 
   Phone, 
@@ -66,8 +66,8 @@ function DashboardContent() {
     try {
       setLoading(true);
       
-      // Use authFetch which includes the auth token
-      const response = await authFetch('/api/provisioning/status', {
+      // Use authenticatedFetch which gets token from Supabase session
+      const response = await authenticatedFetch('/api/provisioning/status', {
         method: 'POST'
       });
 
@@ -78,7 +78,6 @@ function DashboardContent() {
       const result = await response.json();
       setNumbers(result.data || []);
     } catch (err) {
-      console.error('Error fetching numbers:', err);
       setError('Failed to load your numbers. Please try again.');
     } finally {
       setLoading(false);
@@ -89,7 +88,7 @@ function DashboardContent() {
     try {
       setRetrying(purchasedNumberId);
       
-      const response = await authFetch('/api/provisioning/retry', {
+      const response = await authenticatedFetch('/api/provisioning/retry', {
         method: 'POST',
         body: JSON.stringify({ purchasedNumberId })
       });

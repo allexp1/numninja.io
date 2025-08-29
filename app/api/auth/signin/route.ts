@@ -38,7 +38,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Sign in error:', error)
       return NextResponse.json(
         { error: error.message },
         { status: 401 }
@@ -52,15 +51,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('User signed in successfully:', email)
-    console.log('Session created with auth-helpers')
-
     // The auth-helpers should handle cookies automatically
-    // Return success response
+    // Return success response with tokens at top level for localStorage storage
     return NextResponse.json(
       {
         message: 'Sign in successful',
         user: data.user,
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        expires_at: data.session.expires_at,
         session: {
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token,

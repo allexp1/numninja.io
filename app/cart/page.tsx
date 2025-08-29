@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/cart/CartItem';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { useCart } from '@/hooks/useCart';
-import { supabase } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function CartPage() {
   const router = useRouter();
@@ -16,22 +16,38 @@ export default function CartPage() {
   const [isClient, setIsClient] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     setIsClient(true);
     checkUser();
-  }, []);
+    
+    // Listen for auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    setLoading(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    } catch (error) {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCheckout = () => {
     if (!user) {
       // Redirect to sign in with return URL
-      router.push('/auth/signin?redirect=/checkout');
+      router.push('/auth/signin?redirectTo=/checkout');
     } else {
       // Proceed to checkout (not implemented yet)
       alert('Checkout functionality will be implemented in the next task');
@@ -141,7 +157,7 @@ export default function CartPage() {
                     <Button
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                       size="lg"
-                      onClick={() => router.push('/auth/signin?redirect=/cart')}
+                      onClick={() => router.push('/auth/signin?redirectTo=/cart')}
                     >
                       <LogIn className="mr-2 h-4 w-4" />
                       Sign In to Checkout
@@ -150,7 +166,7 @@ export default function CartPage() {
                       variant="outline"
                       className="w-full"
                       size="lg"
-                      onClick={() => router.push('/auth/signup?redirect=/cart')}
+                      onClick={() => router.push('/auth/signup?redirectTo=/cart')}
                     >
                       Create Account
                     </Button>

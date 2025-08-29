@@ -7,7 +7,7 @@ import { User, LogOut, Phone, Menu, X } from 'lucide-react';
 import { CartIcon } from '@/components/cart/CartIcon';
 import { CartDrawer } from '@/components/cart/CartDrawer';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export function Header() {
   const router = useRouter();
@@ -15,22 +15,31 @@ export function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     checkUser();
+    
+    // Listen for auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user || null);
+      setLoading(false);
     });
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   const checkUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    setLoading(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+    } catch (error) {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignOut = async () => {

@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { validateEmail } from '@/lib/supabase'
-import { authStorage } from '@/lib/auth'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export function SignInForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClientComponentClient()
   
   const [formData, setFormData] = useState({
     email: '',
@@ -39,48 +40,34 @@ export function SignInForm() {
     setLoading(true)
 
     try {
-      // Call the signin API
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
+      // Sign in using Supabase client directly
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'Failed to sign in')
-      } else if (data.session && data.user) {
-        // Store tokens and user info in localStorage
-        const stored = authStorage.setTokens(
-          {
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-            expires_at: data.session.expires_at
-          },
-          data.user
-        )
-
-        if (stored) {
-          // Get the redirect URL from query params or default to dashboard
-          const params = new URLSearchParams(window.location.search)
-          const redirectTo = params.get('redirectTo') || '/dashboard'
-          
-          // Use router.push for client-side navigation
-          router.push(redirectTo)
-        } else {
-          setError('Failed to store authentication data')
-        }
-      } else {
-        setError('Invalid response from server')
+      if (signInError) {
+        setError(signInError.message)
+        return
       }
+
+      if (!data.session) {
+        setError('Failed to create session')
+        return
+      }
+      
+      // Supabase auth-helpers will automatically handle cookies
+      // Get the redirect URL from query params or default to dashboard
+      const params = new URLSearchParams(window.location.search)
+      const redirectTo = params.get('redirectTo') || '/dashboard'
+      
+      // Use router.push for client-side navigation
+      // Give Supabase a moment to set cookies
+      setTimeout(() => {
+        router.push(redirectTo)
+      }, 100)
+      
     } catch (err) {
-      console.error('Sign in error:', err)
       setError('An unexpected error occurred')
     } finally {
       setLoading(false)

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { authStorage, isAdmin as checkIsAdmin } from '@/lib/auth'
+import { getCurrentSession, isAdmin as checkIsAdmin } from '@/lib/supabase-auth'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -22,12 +23,15 @@ export function AuthGuard({
   const [isChecking, setIsChecking] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
-        const authenticated = authStorage.isAuthenticated()
-        const adminStatus = checkIsAdmin()
+        // Get session from Supabase
+        const session = await getCurrentSession()
+        const authenticated = !!session?.user
+        const adminStatus = authenticated ? await checkIsAdmin() : false
         
         setIsAuthenticated(authenticated)
         setIsAdmin(adminStatus)
@@ -45,32 +49,24 @@ export function AuthGuard({
           setIsChecking(false)
         }
       } catch (error) {
-        console.error('Auth check error:', error)
         if (requireAuth) {
           router.push('/auth/signin')
         }
+        setIsChecking(false)
       }
     }
 
     checkAuth()
 
-    // Check auth on focus (in case user logs in/out in another tab)
-    const handleFocus = () => checkAuth()
-    window.addEventListener('focus', handleFocus)
-
-    // Check auth on storage change
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'numninja_auth_token' || e.key === 'numninja_session') {
-        checkAuth()
-      }
-    }
-    window.addEventListener('storage', handleStorageChange)
+    // Listen for auth state changes from Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkAuth()
+    })
 
     return () => {
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('storage', handleStorageChange)
+      subscription.unsubscribe()
     }
-  }, [requireAuth, requireAdmin, router, pathname])
+  }, [requireAuth, requireAdmin, router, pathname, supabase])
 
   // Show loading state
   if (isChecking) {
