@@ -13,7 +13,7 @@ interface CountrySelectorProps {
 export function CountrySelector({ countries, selectedCountry, onCountrySelect }: CountrySelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredCountries, setFilteredCountries] = useState<Country[]>(countries);
+  const [filteredCountries, setFilteredCountries] = useState<Country[]>([]);
 
   useEffect(() => {
     const filtered = countries.filter(country =>

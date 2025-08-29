@@ -19,7 +19,7 @@ export function AreaCodeSelector({
 }: AreaCodeSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filteredAreaCodes, setFilteredAreaCodes] = useState<AreaCode[]>(areaCodes);
+  const [filteredAreaCodes, setFilteredAreaCodes] = useState<AreaCode[]>([]);
 
   useEffect(() => {
     const filtered = areaCodes.filter(areaCode =>
