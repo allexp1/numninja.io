@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ShoppingBag, CreditCard, LogIn } from 'lucide-react';
+import { ArrowLeft, ShoppingBag, CreditCard, LogIn, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { CartItem } from '@/components/cart/CartItem';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { useCart } from '@/hooks/useCart';
 import { supabase } from '@/lib/supabase-client';
+import { getStripe } from '@/lib/stripe';
 
 export default function CartPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function CartPage() {
   const [isClient, setIsClient] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -43,13 +45,60 @@ export default function CartPage() {
     }
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!user) {
       // Redirect to sign in with return URL
-      router.push('/auth/signin?redirectTo=/checkout');
-    } else {
-      // Proceed to checkout (not implemented yet)
-      alert('Checkout functionality will be implemented in the next task');
+      router.push('/auth/signin?redirectTo=/cart');
+      return;
+    }
+
+    try {
+      setCheckoutLoading(true);
+
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token');
+      }
+
+      // Create checkout session via API
+      const response = await fetch('/api/checkout/session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ items }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create checkout session');
+      }
+
+      const { sessionId, url } = await response.json();
+
+      // Redirect to Stripe Checkout
+      if (url) {
+        // Use the URL directly if provided
+        window.location.href = url;
+      } else {
+        // Fallback to client-side redirect
+        const stripe = await getStripe();
+        if (!stripe) {
+          throw new Error('Failed to load Stripe');
+        }
+        
+        const { error } = await stripe.redirectToCheckout({ sessionId });
+        if (error) {
+          throw error;
+        }
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert(`Checkout failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
@@ -143,9 +192,19 @@ export default function CartPage() {
                       className="w-full bg-green-600 hover:bg-green-700 text-white"
                       size="lg"
                       onClick={handleCheckout}
+                      disabled={checkoutLoading}
                     >
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Proceed to Checkout
+                      {checkoutLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Proceed to Checkout
+                        </>
+                      )}
                     </Button>
                   </>
                 ) : (
