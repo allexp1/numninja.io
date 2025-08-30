@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { getCurrentSession, isAdmin as checkIsAdmin } from '@/lib/supabase-auth'
 import { supabase } from '@/lib/supabase-client'
 
 interface AuthGuardProps {
@@ -20,55 +19,64 @@ export function AuthGuard({
 }: AuthGuardProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isChecking, setIsChecking] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isAuthorized, setIsAuthorized] = useState(false)
 
   useEffect(() => {
+    let mounted = true;
+
     const checkAuth = async () => {
       try {
-        // Get session from Supabase
-        const session = await getCurrentSession()
-        const authenticated = !!session?.user
-        const adminStatus = authenticated ? await checkIsAdmin() : false
+        const { data: { session } } = await supabase.auth.getSession()
         
-        setIsAuthenticated(authenticated)
-        setIsAdmin(adminStatus)
-
-        // Redirect logic
-        if (requireAuth && !authenticated) {
+        if (!mounted) return;
+        
+        if (requireAuth && !session) {
+          // Not authenticated - redirect to signin
           router.push(`/auth/signin?redirectTo=${encodeURIComponent(pathname)}`)
-        } else if (requireAdmin && (!authenticated || !adminStatus)) {
-          if (!authenticated) {
-            router.push(`/auth/signin?redirectTo=${encodeURIComponent(pathname)}`)
-          } else {
-            router.push('/dashboard')
-          }
-        } else {
-          setIsChecking(false)
+          return
         }
+        
+        if (requireAdmin && session) {
+          // Check admin status
+          const adminEmails = ['admin@test.com', 'admin@numninja.io']
+          const isAdmin = adminEmails.includes(session.user.email || '')
+          
+          if (!isAdmin) {
+            router.push('/dashboard')
+            return
+          }
+        }
+        
+        setIsAuthorized(true)
       } catch (error) {
+        console.error('Auth check error:', error)
         if (requireAuth) {
           router.push('/auth/signin')
         }
-        setIsChecking(false)
+      } finally {
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
     }
 
     checkAuth()
 
-    // Listen for auth state changes from Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      checkAuth()
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted) {
+        checkAuth()
+      }
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
   }, [requireAuth, requireAdmin, router, pathname])
 
-  // Show loading state
-  if (isChecking) {
+  if (isLoading) {
     return fallback || (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -76,12 +84,7 @@ export function AuthGuard({
     )
   }
 
-  // Check authorization
-  if (requireAuth && !isAuthenticated) {
-    return null
-  }
-
-  if (requireAdmin && !isAdmin) {
+  if (!isAuthorized) {
     return null
   }
 

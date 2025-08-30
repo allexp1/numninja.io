@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/hooks/useCart';
-import { authHelpers } from '@/lib/supabase';
+import { authHelpers } from '@/lib/supabase-client';
 import { getStripe } from '@/lib/stripe';
 import { Button } from '@/components/ui/button';
 

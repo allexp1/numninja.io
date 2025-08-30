@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeftIcon, EnvelopeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase-client'
 import SmsForwardingForm from '@/components/sms-config/SmsForwardingForm'
 import type { PurchasedNumber, Country, AreaCode } from '@/lib/database.types'
 

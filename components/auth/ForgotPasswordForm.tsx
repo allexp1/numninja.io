@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from './AuthProvider'
-import { validateEmail } from '@/lib/supabase'
+import { validateEmail } from '@/lib/supabase-client'
 
 export function ForgotPasswordForm() {
   const { sendPasswordResetEmail } = useAuth()

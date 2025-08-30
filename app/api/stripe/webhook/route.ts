@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { verifyWebhookSignature, handleSuccessfulPayment } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { sendPurchaseConfirmation, sendPaymentSuccessful } from '@/lib/email/resend';
 
 // Stripe webhook events we handle
 const relevantEvents = new Set([
@@ -44,9 +45,18 @@ export async function POST(request: NextRequest) {
   }
 
   // Create Supabase admin client for database operations
+  // Must use service role key for admin operations
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+    return NextResponse.json(
+      { error: 'Server configuration error' },
+      { status: 500 }
+    );
+  }
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
     {
       auth: {
         persistSession: false,
@@ -81,21 +91,49 @@ export async function POST(request: NextRequest) {
         if (orderData.items && Array.isArray(orderData.items)) {
           for (const item of orderData.items) {
             // Get country and area code IDs
-            const { data: country } = await supabase
+            console.log(`Looking up country: ${item.countryCode} and area code: ${item.areaCode}`);
+            
+            // Database uses UPPERCASE country codes
+            const { data: country, error: countryError } = await supabase
               .from('countries')
               .select('id')
               .eq('code', item.countryCode.toUpperCase())
               .single();
 
-            const { data: areaCode } = await supabase
+            if (countryError) {
+              console.error('Country lookup error:', countryError);
+              console.error('Failed to find country:', item.countryCode);
+            } else {
+              console.log('Found country:', country);
+            }
+
+            const { data: areaCode, error: areaCodeError } = await supabase
               .from('area_codes')
               .select('id')
               .eq('country_id', country?.id)
               .eq('area_code', item.areaCode)
               .single();
 
+            if (areaCodeError) {
+              console.error('Area code lookup error:', areaCodeError);
+              console.error('Failed to find area code:', {
+                areaCode: item.areaCode,
+                countryId: country?.id
+              });
+              
+              // Let's check what area codes exist for this country
+              const { data: existingAreaCodes } = await supabase
+                .from('area_codes')
+                .select('area_code')
+                .eq('country_id', country?.id)
+                .limit(5);
+              console.log('Sample area codes for this country:', existingAreaCodes);
+            } else {
+              console.log('Found area code:', areaCode);
+            }
+
             if (!country?.id || !areaCode?.id) {
-              console.error('Country or area code not found:', item);
+              console.error('Country or area code not found - skipping:', item);
               continue;
             }
 
@@ -105,7 +143,10 @@ export async function POST(request: NextRequest) {
               .insert({
                 user_id: orderData.userId,
                 country_id: country.id,
+                country_code: item.countryCode.toUpperCase(),
                 area_code_id: areaCode.id,
+                area_code: item.areaCode,
+                base_price: item.monthlyPrice,
                 phone_number: item.number,
                 display_name: `${item.countryCode.toUpperCase()} ${item.number}`,
                 is_active: false, // Will be activated after provisioning
@@ -143,12 +184,47 @@ export async function POST(request: NextRequest) {
               console.error('Failed to add to provisioning queue:', queueError);
             }
 
+            // Send purchase confirmation email
+            try {
+              // Get user email from auth.users or profiles
+              const { data: { user } } = await supabase.auth.admin.getUserById(orderData.userId);
+              
+              if (user?.email) {
+                await sendPurchaseConfirmation(
+                  user.email,
+                  item.number,
+                  item.monthlyPrice,
+                  'monthly'
+                );
+                console.log('Purchase confirmation email sent to:', user.email);
+              }
+            } catch (emailError) {
+              console.error('Failed to send purchase confirmation email:', emailError);
+              // Don't fail the webhook if email fails
+            }
+
             // Clear the cart item
             await supabase
               .from('cart_items')
               .delete()
               .eq('user_id', orderData.userId)
               .eq('phone_number', item.number);
+          }
+
+          // Send payment successful email after processing all items
+          try {
+            const { data: { user } } = await supabase.auth.admin.getUserById(orderData.userId);
+            
+            if (user?.email && session.amount_total) {
+              await sendPaymentSuccessful(
+                user.email,
+                session.amount_total / 100, // Convert from cents
+                `Phone number purchase`,
+                session.invoice as string | undefined
+              );
+            }
+          } catch (emailError) {
+            console.error('Failed to send payment email:', emailError);
           }
         }
 

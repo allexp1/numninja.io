@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from './AuthProvider'
-import { validateEmail, validatePassword, validatePhone } from '@/lib/supabase'
+import { validateEmail, validatePassword, validatePhone } from '@/lib/supabase-client'
 
 export function SignUpForm() {
   const router = useRouter()

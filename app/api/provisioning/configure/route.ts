@@ -1,41 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { provisioningService } from '@/lib/provisioning';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the user token from the request
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    // Create Supabase client with cookies for auth
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({
+      cookies: () => cookieStore
+    });
 
-    const token = authHeader.substring(7);
+    // Get the authenticated user from session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    // Create Supabase client with user's token
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      }
-    );
-
-    // Get the user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (sessionError || !session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - No valid session' },
         { status: 401 }
       );
     }
+
+    const user = session.user;
 
     // Get request body
     const body = await request.json();
@@ -148,38 +136,23 @@ export async function POST(request: NextRequest) {
 // GET configuration for a number
 export async function GET(request: NextRequest) {
   try {
-    // Get the user token from the request
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    // Create Supabase client with cookies for auth
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({
+      cookies: () => cookieStore
+    });
 
-    const token = authHeader.substring(7);
+    // Get the authenticated user from session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    // Create Supabase client with user's token
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      }
-    );
-
-    // Get the user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (sessionError || !session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - No valid session' },
         { status: 401 }
       );
     }
+
+    const user = session.user;
 
     // Get purchasedNumberId from query params
     const { searchParams } = new URL(request.url);

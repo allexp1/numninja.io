@@ -1,20 +1,39 @@
 import Stripe from 'stripe';
 import { loadStripe } from '@stripe/stripe-js';
 
-// Server-side Stripe client
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-07-30.basil',
-  typescript: true,
-});
+// Server-side Stripe client - only initialize on server
+let stripe: Stripe | null = null;
+if (typeof window === 'undefined' && process.env.STRIPE_SECRET_KEY) {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2025-07-30.basil',
+    typescript: true,
+  });
+}
+
+// Export a getter for server-side stripe
+export function getServerStripe() {
+  if (!stripe && typeof window === 'undefined') {
+    throw new Error('Stripe secret key not configured');
+  }
+  return stripe!;
+}
 
 // Client-side Stripe promise
 let stripePromise: Promise<any> | null = null;
 export const getStripe = () => {
-  if (!stripePromise) {
-    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+  if (!stripePromise && typeof window !== 'undefined') {
+    const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (!publishableKey) {
+      console.error('Stripe publishable key not found');
+      return null;
+    }
+    stripePromise = loadStripe(publishableKey);
   }
   return stripePromise;
 };
+
+// Export for backward compatibility
+export { stripe };
 
 // Helper function to format price for Stripe (converts to cents)
 export const formatAmountForStripe = (amount: number): number => {
@@ -94,7 +113,8 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
   });
 
   // Create the checkout session
-  const session = await stripe.checkout.sessions.create({
+  const serverStripe = getServerStripe();
+  const session = await serverStripe.checkout.sessions.create({
     payment_method_types: ['card'],
     mode: monthlyTotal > 0 ? 'subscription' : 'payment',
     customer_email: email,
@@ -132,7 +152,8 @@ export function verifyWebhookSignature(
   signature: string
 ): Stripe.Event {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-  return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+  const serverStripe = getServerStripe();
+  return serverStripe.webhooks.constructEvent(payload, signature, webhookSecret);
 }
 
 // Handle successful payment
@@ -161,17 +182,20 @@ export async function handleSuccessfulPayment(session: Stripe.Checkout.Session) 
 
 // Cancel a subscription
 export async function cancelSubscription(subscriptionId: string) {
-  return await stripe.subscriptions.cancel(subscriptionId);
+  const serverStripe = getServerStripe();
+  return await serverStripe.subscriptions.cancel(subscriptionId);
 }
 
 // Get subscription details
 export async function getSubscription(subscriptionId: string) {
-  return await stripe.subscriptions.retrieve(subscriptionId);
+  const serverStripe = getServerStripe();
+  return await serverStripe.subscriptions.retrieve(subscriptionId);
 }
 
 // Get customer portal session
 export async function createCustomerPortalSession(customerId: string, returnUrl: string) {
-  const session = await stripe.billingPortal.sessions.create({
+  const serverStripe = getServerStripe();
+  const session = await serverStripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
   });
@@ -180,12 +204,14 @@ export async function createCustomerPortalSession(customerId: string, returnUrl:
 
 // Get payment method details
 export async function getPaymentMethod(paymentMethodId: string) {
-  return await stripe.paymentMethods.retrieve(paymentMethodId);
+  const serverStripe = getServerStripe();
+  return await serverStripe.paymentMethods.retrieve(paymentMethodId);
 }
 
 // List customer's payment methods
 export async function listPaymentMethods(customerId: string) {
-  return await stripe.paymentMethods.list({
+  const serverStripe = getServerStripe();
+  return await serverStripe.paymentMethods.list({
     customer: customerId,
     type: 'card',
   });

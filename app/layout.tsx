@@ -4,6 +4,8 @@ import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { cookies } from 'next/headers';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,6 +23,7 @@ export default async function RootLayout({
 }>) {
   // Get the session on the server side
   const cookieStore = cookies();
+  
   const supabase = createServerComponentClient({
     cookies: () => cookieStore
   });
@@ -31,10 +34,14 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Header />
-        <main className="min-h-screen">
-          {children}
-        </main>
+        <Providers>
+          <AuthProvider>
+            <Header />
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -35,11 +35,11 @@ export async function signOut() {
   return true
 }
 
-// Authenticated fetch using Supabase session
+// Authenticated fetch - cookies are automatically sent
 export async function authenticatedFetch(url: string, options: RequestInit = {}) {
   const session = await getCurrentSession()
   
-  if (!session?.access_token) {
+  if (!session) {
     throw new Error('Not authenticated')
   }
   
@@ -47,9 +47,9 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
     ...options,
     headers: {
       ...options.headers,
-      'Authorization': `Bearer ${session.access_token}`,
       'Content-Type': 'application/json'
-    }
+    },
+    credentials: 'include' // Ensure cookies are sent
   })
   
   if (response.status === 401) {

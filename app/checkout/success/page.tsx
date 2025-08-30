@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { CheckCircle2, Clock, Phone, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCartStore } from '@/lib/cart';
+import { AuthGuard } from '@/components/auth/AuthGuard';
+import { getCurrentUser } from '@/lib/supabase-auth';
 
 interface OrderDetails {
   sessionId: string;
@@ -20,7 +22,7 @@ interface OrderDetails {
   subscriptionId?: string;
 }
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { clearCart } = useCartStore();
@@ -31,18 +33,32 @@ export default function CheckoutSuccessPage() {
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    if (!sessionId) {
-      setError('No session ID provided');
-      setLoading(false);
-      return;
-    }
+    // Check if user is authenticated
+    const checkAuth = async () => {
+      const user = await getCurrentUser();
+      if (!user) {
+        // Store the return URL for after sign in
+        const returnUrl = `/checkout/success?session_id=${sessionId}`;
+        sessionStorage.setItem('returnUrl', returnUrl);
+        router.push('/auth/signin');
+        return;
+      }
 
-    // Clear the cart on successful payment
-    clearCart();
+      if (!sessionId) {
+        setError('No session ID provided');
+        setLoading(false);
+        return;
+      }
 
-    // Fetch order details
-    fetchOrderDetails(sessionId);
-  }, [sessionId, clearCart]);
+      // Clear the cart on successful payment
+      clearCart();
+
+      // Fetch order details
+      fetchOrderDetails(sessionId);
+    };
+
+    checkAuth();
+  }, [sessionId, clearCart, router]);
 
   const fetchOrderDetails = async (sessionId: string) => {
     try {
@@ -127,7 +143,7 @@ export default function CheckoutSuccessPage() {
               </div>
               <div className="text-right">
                 <p className="text-3xl font-bold text-gray-900">
-                  ${orderDetails?.totalAmount.toFixed(2)}
+                  ${orderDetails?.totalAmount ? orderDetails.totalAmount.toFixed(2) : '0.00'}
                   <span className="text-base font-normal text-gray-600">/month</span>
                 </p>
               </div>
@@ -235,5 +251,13 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <AuthGuard requireAuth={true}>
+      <CheckoutSuccessContent />
+    </AuthGuard>
   );
 }

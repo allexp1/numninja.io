@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { validateEmail } from '@/lib/supabase'
+import { validateEmail } from '@/lib/supabase-client'
 import { supabase } from '@/lib/supabase-client'
 
 export function SignInForm() {
@@ -56,7 +56,17 @@ export function SignInForm() {
       }
       
       // Supabase auth-helpers will automatically handle cookies
-      // Get the redirect URL from query params or default to dashboard
+      // Check for return URL in sessionStorage first (from checkout flow)
+      const returnUrl = sessionStorage.getItem('returnUrl')
+      if (returnUrl) {
+        sessionStorage.removeItem('returnUrl')
+        setTimeout(() => {
+          router.push(returnUrl)
+        }, 100)
+        return
+      }
+      
+      // Otherwise get the redirect URL from query params or default to dashboard
       const params = new URLSearchParams(window.location.search)
       const redirectTo = params.get('redirectTo') || '/dashboard'
       

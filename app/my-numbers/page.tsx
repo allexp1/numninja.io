@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { authFetch } from '@/lib/auth';
+import { authenticatedFetch } from '@/lib/supabase-auth';
 import { Button } from '@/components/ui/button';
 import { 
   Phone, 
@@ -123,7 +123,7 @@ function MyNumbersContent() {
     try {
       setLoading(true);
       
-      const response = await authFetch('/api/provisioning/status', {
+      const response = await authenticatedFetch('/api/provisioning/status', {
         method: 'POST'
       });
 
@@ -150,7 +150,7 @@ function MyNumbersContent() {
   const loadNumberDetails = async (numberId: string) => {
     try {
       // Load configuration
-      const configResponse = await authFetch(`/api/provisioning/configure?purchasedNumberId=${numberId}`);
+      const configResponse = await authenticatedFetch(`/api/provisioning/configure?purchasedNumberId=${numberId}`);
 
       if (configResponse.ok) {
         const configResult = await configResponse.json();
@@ -166,39 +166,65 @@ function MyNumbersContent() {
         }
       }
 
-      // Load usage stats (mock for now)
-      setUsageStats({
-        total_calls: 42,
-        total_minutes: 186,
-        total_sms: 15,
-        total_cost: 23.50,
-        period_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        period_end: new Date().toISOString()
-      });
-
-      // Load recent calls (mock for now)
-      setRecentCalls([
-        {
-          id: '1',
-          direction: 'inbound',
-          from_number: '+14155551234',
-          to_number: selectedNumber?.phone_number || '',
-          duration_seconds: 125,
-          answered: true,
-          start_time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          cost: 0.05
-        },
-        {
-          id: '2',
-          direction: 'inbound',
-          from_number: '+12125555678',
-          to_number: selectedNumber?.phone_number || '',
-          duration_seconds: 45,
-          answered: true,
-          start_time: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-          cost: 0.02
+      // Load usage stats from API
+      try {
+        const statsResponse = await authenticatedFetch(`/api/provisioning/usage-stats?purchasedNumberId=${numberId}&period=30`);
+        if (statsResponse.ok) {
+          const statsResult = await statsResponse.json();
+          if (statsResult.data?.stats) {
+            setUsageStats(statsResult.data.stats);
+          }
         }
-      ]);
+      } catch (err) {
+        console.error('Error loading usage stats:', err);
+        // Set default values if API fails
+        setUsageStats({
+          total_calls: 0,
+          total_minutes: 0,
+          total_sms: 0,
+          total_cost: 0,
+          period_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          period_end: new Date().toISOString()
+        });
+      }
+
+      // Load recent calls from API
+      try {
+        const callsResponse = await authenticatedFetch(`/api/provisioning/call-logs?purchasedNumberId=${numberId}&limit=10`);
+        if (callsResponse.ok) {
+          const callsResult = await callsResponse.json();
+          if (callsResult.data?.logs && callsResult.data.logs.length > 0) {
+            setRecentCalls(callsResult.data.logs);
+          } else {
+            // Set mock data if no real logs exist yet
+            setRecentCalls([
+              {
+                id: '1',
+                direction: 'inbound',
+                from_number: '+14155551234',
+                to_number: selectedNumber?.phone_number || '',
+                duration_seconds: 125,
+                answered: true,
+                start_time: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+                cost: 0.05
+              },
+              {
+                id: '2',
+                direction: 'inbound',
+                from_number: '+12125555678',
+                to_number: selectedNumber?.phone_number || '',
+                duration_seconds: 45,
+                answered: true,
+                start_time: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+                cost: 0.02
+              }
+            ]);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading call logs:', err);
+        setRecentCalls([]);
+      }
     } catch (err) {
       console.error('Error loading number details:', err);
     }
@@ -210,7 +236,7 @@ function MyNumbersContent() {
     try {
       setSaving(true);
       
-      const response = await authFetch('/api/provisioning/configure', {
+      const response = await authenticatedFetch('/api/provisioning/configure', {
         method: 'POST',
         body: JSON.stringify({
           purchasedNumberId: selectedNumber.id,

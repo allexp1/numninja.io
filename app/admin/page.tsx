@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { AuthGuard } from '@/components/auth/AuthGuard'
-import { authFetch } from '@/lib/auth'
+import { authFetch } from '@/lib/auth-fetch'
 import {
   Users,
   Phone,
